@@ -1,7 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Replace, Package, Upload, X, Check } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Replace, 
+  Package, 
+  Upload, 
+  X, 
+  Check,
+  Monitor,
+  Smartphone,
+  Trash2,
+  Save,
+  Shield
+} from "lucide-react";
 import { processClonedWebsite } from "../utils/replaceUtils";
+import { useAppStore } from "../store/useAppStore";
 
 interface ReplaceInfo {
   originalCompanyName: string;
@@ -16,10 +29,15 @@ interface ReplaceInfo {
   logoPreview: string | null;
 }
 
+type DeviceType = "pc" | "mobile";
+
 export default function Preview() {
   const navigate = useNavigate();
+  const { addNotification, addTemplate } = useAppStore();
   const [showModal, setShowModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [deviceType, setDeviceType] = useState<DeviceType>("pc");
+  const [adsRemoved, setAdsRemoved] = useState(false);
   const [replaceInfo, setReplaceInfo] = useState<ReplaceInfo>({
     originalCompanyName: "",
     newCompanyName: "",
@@ -32,7 +50,6 @@ export default function Preview() {
     logo: null,
     logoPreview: null,
   });
-  const [isReplaced, setIsReplaced] = useState(false);
   const [displayInfo, setDisplayInfo] = useState<{
     companyName: string;
     phone: string;
@@ -42,7 +59,21 @@ export default function Preview() {
   } | null>(null);
 
   const handleExport = () => {
-    alert("网站已成功导出为 ZIP 文件！");
+    const now = new Date();
+    const timestamp = now.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    }).replace(/[\/:]/g, "-").replace(/\s+/g, "_");
+    
+    addNotification({
+      type: "success",
+      title: "导出成功",
+      message: `文件 "克隆网站-${timestamp}.zip" 已保存到桌面，解压后打开 index.html 即可访问！`
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -83,7 +114,6 @@ export default function Preview() {
   };
 
   const handleConfirmReplace = () => {
-    // 模拟调用处理函数
     const mockHtml = "<div>示例HTML内容</div>";
     processClonedWebsite(mockHtml, {
       companyName: { originalText: replaceInfo.originalCompanyName, newText: replaceInfo.newCompanyName },
@@ -101,9 +131,38 @@ export default function Preview() {
       address: replaceInfo.newAddress,
       logoPreview: replaceInfo.logoPreview,
     });
-    setIsReplaced(true);
     setShowModal(false);
-    alert("信息替换成功！预览已更新");
+    
+    addNotification({
+      type: "success",
+      title: "替换成功",
+      message: "网站信息已更新完毕！"
+    });
+  };
+
+  const handleRemoveAds = () => {
+    setAdsRemoved(true);
+    addNotification({
+      type: "success",
+      title: "去广告完成",
+      message: "已成功移除所有广告、弹窗和悬浮窗！"
+    });
+  };
+
+  const handleSaveTemplate = () => {
+    const templateName = prompt("请输入模板名称：", displayInfo?.companyName || "我的模板");
+    if (templateName) {
+      addTemplate({
+        name: templateName,
+        preview: displayInfo?.logoPreview || "",
+        data: { displayInfo, adsRemoved }
+      });
+      addNotification({
+        type: "success",
+        title: "保存成功",
+        message: `模板 "${templateName}" 已保存到模板库！`
+      });
+    }
   };
 
   const removeLogo = () => {
@@ -114,6 +173,16 @@ export default function Preview() {
     }));
   };
 
+  const getDeviceStyles = () => {
+    switch (deviceType) {
+      case "mobile":
+        return "max-w-sm mx-auto rounded-[2rem] border-8 border-gray-800 shadow-2xl";
+      case "pc":
+      default:
+        return "max-w-6xl mx-auto rounded-xl border border-gray-300 shadow-xl";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* 顶部固定操作栏 */}
@@ -122,7 +191,7 @@ export default function Preview() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate("/")}
-              className="flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors"
+              className="btn-float flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               返回
@@ -132,17 +201,66 @@ export default function Preview() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* 设备切换按钮 */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setDeviceType("pc")}
+                className={`btn-float px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                  deviceType === "pc" 
+                    ? "bg-white text-blue-600 shadow-sm" 
+                    : "text-slate-600 hover:text-slate-800"
+                }`}
+              >
+                <Monitor className="w-4 h-4" />
+                PC端
+              </button>
+              <button
+                onClick={() => setDeviceType("mobile")}
+                className={`btn-float px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                  deviceType === "mobile" 
+                    ? "bg-white text-blue-600 shadow-sm" 
+                    : "text-slate-600 hover:text-slate-800"
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                移动端
+              </button>
+            </div>
+
+            {/* 功能按钮 */}
+            <button
+              onClick={handleRemoveAds}
+              disabled={adsRemoved}
+              className={`btn-float flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                adsRemoved
+                  ? "bg-green-100 text-green-700 cursor-not-allowed"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+              }`}
+            >
+              <Shield className="w-5 h-5" />
+              {adsRemoved ? "已去广告" : "一键去广告"}
+            </button>
+
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+              className="btn-float flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all"
             >
               <Replace className="w-5 h-5" />
               一键替换信息
             </button>
+
+            <button
+              onClick={handleSaveTemplate}
+              className="btn-float flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow-md transition-all"
+            >
+              <Save className="w-5 h-5" />
+              保存为模板
+            </button>
+
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md transition-all"
+              className="btn-float flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md transition-all"
             >
               <Package className="w-5 h-5" />
               导出网站
@@ -153,49 +271,48 @@ export default function Preview() {
 
       {/* 预览内容区域 */}
       <div className="flex-1 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
-            <div className="p-12 text-center">
-              <div className="mb-6">
-                {displayInfo?.logoPreview ? (
-                  <img
-                    src={displayInfo.logoPreview}
-                    alt="公司LOGO"
-                    className="w-24 h-24 object-contain rounded-full mx-auto mb-4"
-                  />
-                ) : (
-                  <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Package className="w-12 h-12 text-blue-600" />
-                  </div>
-                )}
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">
-                  {displayInfo?.companyName || "您的公司名称"}
-                </h2>
-                <p className="text-slate-600 mb-2">
-                  {displayInfo?.address || "公司地址"}
-                </p>
-                <p className="text-slate-500 text-sm mb-1">
-                  {displayInfo?.phone || "联系电话"}
-                </p>
-                <p className="text-slate-500 text-sm">
-                  {displayInfo?.email || "邮箱地址"}
-                </p>
-              </div>
-              <div className="mt-8 pt-8 border-t border-slate-200">
-                <p className="text-slate-400 text-sm mb-4">
-                  所有外部链接已自动禁用
-                </p>
-                <div className="flex gap-4 justify-center">
-                  <a href="#" className="text-blue-600 hover:text-blue-700">
-                    关于我们
-                  </a>
-                  <a href="#" className="text-blue-600 hover:text-blue-700">
-                    产品展示
-                  </a>
-                  <a href="#" className="text-blue-600 hover:text-blue-700">
-                    联系我们
-                  </a>
+        <div className={`device-preview bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200 ${getDeviceStyles()}`}>
+          <div className="p-12 text-center">
+            <div className="mb-6">
+              {displayInfo?.logoPreview ? (
+                <img
+                  src={displayInfo.logoPreview}
+                  alt="公司LOGO"
+                  className="w-24 h-24 object-contain rounded-full mx-auto mb-4"
+                />
+              ) : (
+                <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Package className="w-12 h-12 text-blue-600" />
                 </div>
+              )}
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                {displayInfo?.companyName || "您的公司名称"}
+              </h2>
+              <p className="text-slate-600 mb-2">
+                {displayInfo?.address || "公司地址"}
+              </p>
+              <p className="text-slate-500 text-sm mb-1">
+                {displayInfo?.phone || "联系电话"}
+              </p>
+              <p className="text-slate-500 text-sm">
+                {displayInfo?.email || "邮箱地址"}
+              </p>
+            </div>
+            <div className="mt-8 pt-8 border-t border-slate-200">
+              <p className="text-slate-400 text-sm mb-4">
+                所有外部链接已自动禁用
+                {adsRemoved && <span className="text-green-600 ml-2">✓ 广告已移除</span>}
+              </p>
+              <div className="flex gap-4 justify-center">
+                <a href="#" className="text-blue-600 hover:text-blue-700">
+                  关于我们
+                </a>
+                <a href="#" className="text-blue-600 hover:text-blue-700">
+                  产品展示
+                </a>
+                <a href="#" className="text-blue-600 hover:text-blue-700">
+                  联系我们
+                </a>
               </div>
             </div>
           </div>
@@ -205,7 +322,7 @@ export default function Preview() {
       {/* 替换信息弹窗 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="card-float bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-8 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-2xl font-bold text-slate-800">
                 一键替换信息
@@ -336,7 +453,7 @@ export default function Preview() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => document.getElementById("logoInput")?.click()}
-                    className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                    className={`card-float border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
                       isDragging
                         ? "border-blue-500 bg-blue-50"
                         : "border-slate-300 hover:border-blue-400 hover:bg-slate-50"
@@ -364,7 +481,7 @@ export default function Preview() {
             <div className="p-8 border-t border-slate-200">
               <button
                 onClick={handleConfirmReplace}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+                className="btn-float w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
                 <Check className="w-6 h-6" />
                 确认替换
